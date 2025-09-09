@@ -1,0 +1,21 @@
+parameters:
+    level: 8
+    paths:
+        - wc-admin-order-notes.php
+        - src/
+    bootstrapFiles:
+        - vendor/autoload.php
+    scanDirectories:
+        - vendor/
+    ignoreErrors:
+        # WordPress specific ignores
+        - '#Function (add_action|add_filter|apply_filters|do_action) invoked#'
+        - '#Function __ invoked#'
+        - '#Function _e invoked#'
+        - '#Function esc_html__ invoked#'
+        - '#Function esc_attr__ invoked#'
+        - '#Function wp_#'
+        - '#Function wc_#'
+        - '#Class WC_#'
+        - '#Class WP_#'
+    treatPhpDocTypesAsCertain: false 

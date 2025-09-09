@@ -1,0 +1,513 @@
+/**
+ * WC Admin Order Notes - Styles
+ * Version: 2.2.0
+ */
+
+/* CSS Variables for easy theming */
+:root {
+    --wc-notes-primary-color: #0073aa;
+    --wc-notes-success-color: #00a32a;
+    --wc-notes-error-color: #d63638;
+    --wc-notes-bg-light: #f0f0f1;
+    --wc-notes-bg-hover: #e5e5e5;
+    --wc-notes-border-color: #ddd;
+    --wc-notes-text-color: #333;
+    --wc-notes-text-muted: #666;
+    --wc-notes-modal-bg: rgba(0, 0, 0, 0.5);
+    --wc-notes-animation-duration: 0.3s;
+    --wc-notes-border-radius: 4px;
+}
+
+
+.note-preview {
+    cursor: pointer;
+    display: inline-block;
+    padding: 1px 2px;
+    background: var(--wc-notes-bg-light);
+    border-radius: var(--wc-notes-border-radius);
+    border: 1px solid var(--wc-notes-border-color);
+    transition: all var(--wc-notes-animation-duration) ease;
+    max-width: 200px;
+    word-wrap: break-word;
+    position: relative;
+    z-index: 11;
+    /* Performance optimization */
+    will-change: transform, box-shadow;
+    transform: translateZ(0);
+    /* Prevent text selection to avoid interference */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.note-preview:hover {
+    background: var(--wc-notes-bg-hover);
+    border-color: #999;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 12;
+}
+
+.note-preview.no-notes {
+    background: #f9f9f9;
+    color: var(--wc-notes-text-muted);
+    font-style: italic;
+    border: 1px dashed #ccc;
+}
+
+.note-preview.no-notes:hover {
+    background: #f0f0f0;
+    border-color: #999;
+}
+
+.note-content {
+    font-size: 12px;
+    line-height: 1.3;
+    color: var(--wc-notes-text-color);
+    pointer-events: none; /* Prevent child elements from receiving clicks */
+}
+
+.note-date {
+    font-size: 10px;
+    color: var(--wc-notes-text-muted);
+    display: block;
+    pointer-events: none; /* Prevent child elements from receiving clicks */
+}
+
+/* Override WooCommerce table row link styles for our column */
+.wp-list-table .order-notes-cell {
+    position: relative;
+}
+
+.wp-list-table tbody tr:hover .order-notes-cell .note-preview {
+    /* Ensure our preview stays above the row hover effect */
+    position: relative;
+    z-index: 15;
+}
+
+/* Prevent row link from interfering with our column */
+.wp-list-table tbody tr .order-notes-cell * {
+    position: relative;
+    z-index: 10;
+}
+
+/* Modal Styles */
+.order-notes-modal {
+    display: none;
+    position: fixed;
+    z-index: 100000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--wc-notes-modal-bg);
+    backdrop-filter: blur(2px);
+    /* Performance optimization */
+    contain: layout style;
+}
+
+.order-notes-modal-content {
+    background-color: #fff;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    transform: scale(0.9);
+    opacity: 0;
+    transition: all var(--wc-notes-animation-duration) ease;
+    /* Performance optimization */
+    will-change: transform, opacity;
+}
+
+.order-notes-modal-content.show {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.order-notes-modal-header {
+    background: #f8f9fa;
+    padding: 20px 25px;
+    border-bottom: 1px solid #e1e5e9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.order-notes-modal-header h3 {
+    margin: 0;
+    color: #23282d;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.order-notes-modal-close {
+    color: var(--wc-notes-text-muted);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+    transition: color var(--wc-notes-animation-duration) ease;
+    background: none;
+    border: none;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.order-notes-modal-close:hover,
+.order-notes-modal-close:focus {
+    color: #000;
+    outline: 2px solid var(--wc-notes-primary-color);
+    outline-offset: 2px;
+}
+
+.order-notes-modal-body {
+    padding: 25px;
+    max-height: 60vh;
+    overflow-y: auto;
+    /* Smooth scrolling */
+    scroll-behavior: smooth;
+}
+
+/* Custom scrollbar for modal body */
+.order-notes-modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.order-notes-modal-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.order-notes-modal-body::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.order-notes-modal-body::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Notes List Styles */
+.notes-list {
+    margin-bottom: 25px;
+}
+
+.loading {
+    text-align: center;
+    padding: 20px;
+    color: var(--wc-notes-text-muted);
+    font-style: italic;
+}
+
+/* Loading spinner */
+.loading::before {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid var(--wc-notes-primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.error {
+    text-align: center;
+    padding: 20px;
+    color: var(--wc-notes-error-color);
+    background: #fef7f1;
+    border: 1px solid #f0b849;
+    border-radius: var(--wc-notes-border-radius);
+}
+
+.no-notes {
+    text-align: center;
+    padding: 0 10px;
+    color: var(--wc-notes-text-muted);
+    font-style: italic;
+    background: #f9f9f9;
+    border: 1px dashed var(--wc-notes-border-color);
+    border-radius: var(--wc-notes-border-radius);
+}
+
+.notes-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.note-item {
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid var(--wc-notes-primary-color);
+    background: #f8f9fa;
+    position: relative;
+    /* Performance optimization */
+    contain: content;
+}
+
+.note-item.admin-note {
+    border-left-color: var(--wc-notes-primary-color);
+    background: #f0f6fc;
+}
+
+.note-item.customer-note {
+    border-left-color: var(--wc-notes-success-color);
+    background: #f0f8f0;
+}
+
+
+.note-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--wc-notes-text-muted);
+}
+
+.note-author {
+    font-weight: 500;
+    padding: 2px 8px;
+    background: #fff;
+    border-radius: 3px;
+    border: 1px solid var(--wc-notes-border-color);
+}
+
+.note-date {
+    color: #888;
+}
+
+/* Add Note Section */
+.add-note-section {
+    border-top: 1px solid #e1e5e9;
+    padding-top: 20px;
+}
+
+.add-note-section h4 {
+    margin: 0 0 15px 0;
+    color: #23282d;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+#new-note-content {
+    width: 100%;
+    min-height: 80px;
+    padding: 12px;
+    border: 1px solid var(--wc-notes-border-color);
+    border-radius: var(--wc-notes-border-radius);
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    resize: vertical;
+    margin-bottom: 15px;
+    transition: border-color var(--wc-notes-animation-duration) ease;
+    /* Better text rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+#new-note-content:focus {
+    outline: none;
+    border-color: var(--wc-notes-primary-color);
+    box-shadow: 0 0 0 1px var(--wc-notes-primary-color);
+}
+
+#add-note-btn {
+    background: var(--wc-notes-primary-color);
+    border-color: var(--wc-notes-primary-color);
+    color: #fff;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: var(--wc-notes-border-radius);
+    cursor: pointer;
+    transition: all var(--wc-notes-animation-duration) ease;
+    /* Better button appearance */
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+#add-note-btn:hover:not(:disabled) {
+    background: #005a87;
+    border-color: #005a87;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+#add-note-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+#add-note-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#add-note-btn:focus {
+    outline: 2px solid #005a87;
+    outline-offset: 2px;
+}
+
+/* Notification Styles */
+.order-notes-notification {
+    position: fixed;
+    top: 32px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: var(--wc-notes-border-radius);
+    color: #fff;
+    font-weight: 500;
+    z-index: 100001;
+    display: none;
+    max-width: 300px;
+    word-wrap: break-word;
+    opacity: 0;
+    transition: opacity var(--wc-notes-animation-duration) ease;
+    /* Performance optimization */
+    will-change: opacity;
+}
+
+.order-notes-notification.success {
+    background: var(--wc-notes-success-color);
+    border-left: 4px solid #008a20;
+}
+
+.order-notes-notification.error {
+    background: var(--wc-notes-error-color);
+    border-left: 4px solid #b32d2e;
+}
+
+/* Body styles when modal is open */
+body.modal-open {
+    overflow: hidden;
+}
+
+/* Focus visible styles for accessibility */
+:focus-visible {
+    outline: 2px solid var(--wc-notes-primary-color);
+    outline-offset: 2px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .order-notes-modal-content {
+        width: 95%;
+        margin: 10% auto;
+        max-height: 85vh;
+    }
+    
+    .order-notes-modal-header {
+        padding: 15px 20px;
+    }
+    
+    .order-notes-modal-body {
+        padding: 20px;
+    }
+    
+    .note-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .order-notes-notification {
+        right: 10px;
+        left: 10px;
+        max-width: none;
+    }
+}
+
+/* WordPress Admin Integration */
+.wp-admin .order-notes-modal {
+    z-index: 100000;
+}
+
+.wp-admin .order-notes-notification {
+    top: 32px;
+}
+
+/* WooCommerce Admin Bar Compatibility */
+.wp-admin.admin-bar .order-notes-notification {
+    top: 46px;
+}
+
+@media (max-width: 782px) {
+    .wp-admin.admin-bar .order-notes-notification {
+        top: 46px;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .note-preview {
+        border-width: 2px;
+    }
+    
+    .order-notes-modal-content {
+        border: 2px solid #000;
+    }
+    
+    .note-item {
+        border-left-width: 6px;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .order-notes-modal-content,
+    .note-preview,
+    .order-notes-notification,
+    #add-note-btn {
+        transition: none;
+    }
+    
+    .loading::before {
+        animation: none;
+        border-color: var(--wc-notes-primary-color);
+    }
+}
+
+/* Dark mode support (experimental) */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --wc-notes-bg-light: #2c3338;
+        --wc-notes-bg-hover: #3c4348;
+        --wc-notes-border-color: #4f5458;
+        --wc-notes-text-color: #e0e0e0;
+        --wc-notes-text-muted: #a0a0a0;
+    }
+    
+    .order-notes-modal-content {
+        background-color: #1e1e1e;
+        color: #e0e0e0;
+    }
+    
+    .order-notes-modal-header {
+        background: #2c3338;
+    }
+    
+    .note-item {
+        background: #2c3338;
+    }
+    
+    .note-author {
+        background: #3c4348;
+    }
+} 
