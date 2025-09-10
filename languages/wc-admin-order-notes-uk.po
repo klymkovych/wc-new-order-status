@@ -96,6 +96,24 @@ msgstr "Будь ласка, введіть нотатку."
 msgid "No order selected."
 msgstr "Замовлення не вибрано."
 
+msgid "You do not have permission to access order notes."
+msgstr "У вас немає прав для доступу до нотаток замовлення."
+
+msgid "Security check failed. Please refresh the page and try again."
+msgstr "Помилка перевірки безпеки. Будь ласка, оновіть сторінку та спробуйте знову."
+
+msgid "Too many requests. Please try again later."
+msgstr "Занадто багато запитів. Будь ласка, спробуйте пізніше."
+
+msgid "You do not have permission to add notes to this order."
+msgstr "У вас немає прав для додавання нотаток до цього замовлення."
+
+msgid "An unexpected error occurred while adding the note."
+msgstr "Сталася неочікувана помилка при додаванні нотатки."
+
+msgid "Network error. Please check your connection."
+msgstr "Помилка мережі. Будь ласка, перевірте ваше з'єднання."
+
 msgid "Today"
 msgstr "Сьогодні"
 
@@ -103,4 +121,13 @@ msgid "Yesterday"
 msgstr "Вчора"
 
 msgid "Updating..."
-msgstr "Оновлення..." 
+msgstr "Оновлення..."
+
+msgid "Note content is too long."
+msgstr "Зміст нотатки занадто довгий."
+
+msgid "Invalid order ID."
+msgstr "Невірний ID замовлення."
+
+msgid "No order selected."
+msgstr "Замовлення не вибрано." 

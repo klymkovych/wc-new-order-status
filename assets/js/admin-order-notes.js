@@ -1,6 +1,6 @@
 /**
  * WC Admin Order Notes - Modern JavaScript (REST API Only)
- * Version: 2.2.0
+ * Version: 2.2.1
  */
 
 (function() {
@@ -9,7 +9,9 @@
     // State management
     const state = {
         currentOrderId: null,
-        isLoading: false
+        isLoading: false,
+        debounceTimer: null,
+        maxNoteLength: wcOrderNotes.maxNoteLength || 1000
     };
     
     // DOM elements cache
@@ -45,6 +47,7 @@
         elements.addNoteBtn = document.getElementById('add-note-btn');
         elements.newNoteTextarea = document.getElementById('new-note-content');
         elements.modalTitle = document.getElementById('modal-title');
+        elements.characterCount = document.getElementById('character-count');
     }
     
     /**
@@ -75,6 +78,7 @@
         // Enter key in textarea
         if (elements.newNoteTextarea) {
             elements.newNoteTextarea.addEventListener('keydown', handleTextareaKeyDown);
+            elements.newNoteTextarea.addEventListener('input', handleTextareaInput);
         }
     }
     
@@ -109,8 +113,20 @@
         const orderNotesCell = e.target.closest('.order-notes-cell');
         if (orderNotesCell) {
             const notePreviewInCell = orderNotesCell.querySelector('.note-preview');
-            if (notePreviewInCell && e.target !== notePreviewInCell && !notePreviewInCell.contains(e.target)) {
-                return;
+            if (notePreviewInCell) {
+                // Stop all propagation to prevent WooCommerce from handling the click
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                
+                const orderId = notePreviewInCell.dataset.orderId;
+                if (orderId) {
+                    state.currentOrderId = orderId;
+                    openModal();
+                    loadOrderNotes(orderId);
+                }
+                
+                return false;
             }
         }
     }
@@ -139,7 +155,36 @@
     function handleTextareaKeyDown(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            handleAddNote();
+            
+            // Debounce the add note action
+            if (state.debounceTimer) {
+                clearTimeout(state.debounceTimer);
+            }
+            
+            state.debounceTimer = setTimeout(() => {
+                handleAddNote();
+            }, 300);
+        }
+    }
+    
+    /**
+     * Handle textarea input for character count
+     */
+    function handleTextareaInput(e) {
+        if (!elements.characterCount) return;
+        
+        const length = e.target.value.length;
+        const maxLength = state.maxNoteLength;
+        
+        elements.characterCount.textContent = `${length} / ${maxLength}`;
+        
+        // Update styling based on character count
+        elements.characterCount.className = 'character-count';
+        if (length > maxLength * 0.9) {
+            elements.characterCount.classList.add('warning');
+        }
+        if (length >= maxLength) {
+            elements.characterCount.classList.add('error');
         }
     }
     
@@ -214,21 +259,53 @@
      * Fetch notes via REST API
      */
     async function fetchNotesViaRest(orderId) {
-        const response = await fetch(`${wcOrderNotes.restUrl}/notes/${orderId}`, {
-            method: 'GET',
-            headers: {
-                'X-WP-Nonce': wcOrderNotes.restNonce,
-                'Content-Type': 'application/json',
-            },
-            credentials: 'same-origin'
-        });
-        
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Failed to load notes');
+        // Validate order ID
+        if (!orderId || !/^\d+$/.test(orderId)) {
+            throw new Error('Invalid order ID');
         }
         
-        return await response.json();
+        try {
+            const response = await fetch(`${wcOrderNotes.restUrl}/notes/${orderId}`, {
+                method: 'GET',
+                headers: {
+                    'X-WP-Nonce': wcOrderNotes.restNonce,
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+            
+            if (!response.ok) {
+                let errorMessage = 'Failed to load notes';
+                
+                try {
+                    const error = await response.json();
+                    errorMessage = error.message || errorMessage;
+                } catch (e) {
+                    // If response is not JSON, use status text
+                    errorMessage = response.statusText || errorMessage;
+                }
+                
+                // Handle specific HTTP status codes
+                if (response.status === 403) {
+                    errorMessage = wcOrderNotes.strings.securityError || 'Security check failed';
+                } else if (response.status === 404) {
+                    errorMessage = 'Order not found';
+                } else if (response.status === 429) {
+                    errorMessage = 'Too many requests. Please try again later.';
+                }
+                
+                throw new Error(errorMessage);
+            }
+            
+            return await response.json();
+            
+        } catch (error) {
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                throw new Error('Network error. Please check your connection.');
+            }
+            throw error;
+        }
     }
     
     /**
@@ -240,21 +317,46 @@
         elements.modalTitle.textContent = `${wcOrderNotes.strings.orderNotes} #${orderNumber}`;
         
         if (notes.length === 0) {
-            elements.notesList.innerHTML = `<div class="no-notes">${wcOrderNotes.strings.noNotes}</div>`;
+            const noNotesDiv = document.createElement('div');
+            noNotesDiv.className = 'no-notes';
+            noNotesDiv.textContent = wcOrderNotes.strings.noNotes;
+            elements.notesList.innerHTML = '';
+            elements.notesList.appendChild(noNotesDiv);
             return;
         }
         
-        const notesHtml = notes.map(note => `
-            <div class="note-item ${note.type}-note">
-                <div class="note-content">${escapeHtml(note.content)}</div>
-                <div class="note-meta">
-                    <span class="note-author">${escapeHtml(note.author)}</span>
-                    <span class="note-date">${escapeHtml(note.date)}</span>
-                </div>
-            </div>
-        `).join('');
+        const container = document.createElement('div');
+        container.className = 'notes-container';
         
-        elements.notesList.innerHTML = `<div class="notes-container">${notesHtml}</div>`;
+        notes.forEach(note => {
+            const noteItem = document.createElement('div');
+            noteItem.className = `note-item ${escapeHtml(note.type)}-note`;
+            
+            const noteContent = document.createElement('div');
+            noteContent.className = 'note-content';
+            noteContent.textContent = note.content;
+            
+            const noteMeta = document.createElement('div');
+            noteMeta.className = 'note-meta';
+            
+            const noteAuthor = document.createElement('span');
+            noteAuthor.className = 'note-author';
+            noteAuthor.textContent = note.author;
+            
+            const noteDate = document.createElement('span');
+            noteDate.className = 'note-date';
+            noteDate.textContent = note.date;
+            
+            noteMeta.appendChild(noteAuthor);
+            noteMeta.appendChild(noteDate);
+            
+            noteItem.appendChild(noteContent);
+            noteItem.appendChild(noteMeta);
+            container.appendChild(noteItem);
+        });
+        
+        elements.notesList.innerHTML = '';
+        elements.notesList.appendChild(container);
     }
     
     /**
@@ -266,12 +368,17 @@
         const noteContent = elements.newNoteTextarea.value.trim();
         
         if (!noteContent) {
-            alert(wcOrderNotes.strings.notePlaceholder || 'Please enter a note.');
+            showNotification(wcOrderNotes.strings.notePlaceholder || 'Please enter a note.', 'error');
+            return;
+        }
+        
+        if (noteContent.length > state.maxNoteLength) {
+            showNotification(`Note content is too long. Maximum ${state.maxNoteLength} characters allowed.`, 'error');
             return;
         }
         
         if (!state.currentOrderId) {
-            alert('No order selected.');
+            showNotification('No order selected.', 'error');
             return;
         }
         
@@ -305,24 +412,60 @@
      * Add note via REST API
      */
     async function addNoteViaRest(orderId, noteContent) {
-        const response = await fetch(`${wcOrderNotes.restUrl}/notes/${orderId}`, {
-            method: 'POST',
-            headers: {
-                'X-WP-Nonce': wcOrderNotes.restNonce,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                note_content: noteContent
-            }),
-            credentials: 'same-origin'
-        });
-        
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Failed to add note');
+        // Validate order ID
+        if (!orderId || !/^\d+$/.test(orderId)) {
+            throw new Error('Invalid order ID');
         }
         
-        return await response.json();
+        // Sanitize note content - remove HTML tags and limit length
+        const sanitizedContent = noteContent.replace(/<[^>]*>/g, '').substring(0, state.maxNoteLength);
+        
+        try {
+            const response = await fetch(`${wcOrderNotes.restUrl}/notes/${orderId}`, {
+                method: 'POST',
+                headers: {
+                    'X-WP-Nonce': wcOrderNotes.restNonce,
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    note_content: sanitizedContent
+                }),
+                credentials: 'same-origin'
+            });
+            
+            if (!response.ok) {
+                let errorMessage = 'Failed to add note';
+                
+                try {
+                    const error = await response.json();
+                    errorMessage = error.message || errorMessage;
+                } catch (e) {
+                    errorMessage = response.statusText || errorMessage;
+                }
+                
+                // Handle specific HTTP status codes
+                if (response.status === 400) {
+                    errorMessage = wcOrderNotes.strings.contentTooLong || 'Note content is too long';
+                } else if (response.status === 403) {
+                    errorMessage = wcOrderNotes.strings.securityError || 'Security check failed';
+                } else if (response.status === 404) {
+                    errorMessage = 'Order not found';
+                } else if (response.status === 429) {
+                    errorMessage = 'Too many requests. Please try again later.';
+                }
+                
+                throw new Error(errorMessage);
+            }
+            
+            return await response.json();
+            
+        } catch (error) {
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                throw new Error('Network error. Please check your connection.');
+            }
+            throw error;
+        }
     }
     
     /**
@@ -378,26 +521,41 @@
         const notePreview = document.querySelector(`[data-order-id="${orderId}"]`);
         if (!notePreview) return;
         
+        // Store original content safely
+        const originalContent = notePreview.cloneNode(true);
+        
         // Add a subtle loading indicator
-        const originalContent = notePreview.innerHTML;
-        notePreview.innerHTML = '<span style="opacity: 0.6;">Updating...</span>';
+        const loadingSpan = document.createElement('span');
+        loadingSpan.style.opacity = '0.6';
+        loadingSpan.textContent = 'Updating...';
+        notePreview.innerHTML = '';
+        notePreview.appendChild(loadingSpan);
         
         // Fetch the latest note for preview
         fetchLatestNoteForPreview(orderId).then(latestNote => {
             if (latestNote && notePreview) {
+                notePreview.innerHTML = '';
+                
                 if (latestNote.content) {
+                    const noteContentDiv = document.createElement('div');
+                    noteContentDiv.className = 'note-content';
+                    
                     const noteContent = latestNote.content.length > 50 
                         ? latestNote.content.substring(0, 50) + '...' 
                         : latestNote.content;
-                    const noteDate = formatDateShort(latestNote.date);
+                    noteContentDiv.textContent = noteContent;
                     
-                    notePreview.innerHTML = `
-                        <div class="note-content">${escapeHtml(noteContent)}</div>
-                        <small class="note-date">${escapeHtml(noteDate)}</small>
-                    `;
+                    const noteDateSmall = document.createElement('small');
+                    noteDateSmall.className = 'note-date';
+                    noteDateSmall.textContent = formatDateShort(latestNote.date);
+                    
+                    notePreview.appendChild(noteContentDiv);
+                    notePreview.appendChild(noteDateSmall);
                     notePreview.classList.remove('no-notes');
                 } else {
-                    notePreview.innerHTML = '<em>No notes</em>';
+                    const noNotesEm = document.createElement('em');
+                    noNotesEm.textContent = 'No notes';
+                    notePreview.appendChild(noNotesEm);
                     notePreview.classList.add('no-notes');
                 }
                 
@@ -409,8 +567,9 @@
             }
         }).catch(() => {
             // If failed, restore original content
-            if (notePreview) {
-                notePreview.innerHTML = originalContent;
+            if (notePreview && originalContent) {
+                notePreview.innerHTML = '';
+                notePreview.appendChild(originalContent.cloneNode(true));
             }
         });
     }
@@ -455,7 +614,11 @@
      */
     function showLoadingState() {
         if (elements.notesList) {
-            elements.notesList.innerHTML = `<div class="loading">${wcOrderNotes.strings.loading}</div>`;
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'loading';
+            loadingDiv.textContent = wcOrderNotes.strings.loading;
+            elements.notesList.innerHTML = '';
+            elements.notesList.appendChild(loadingDiv);
         }
     }
     
@@ -464,7 +627,11 @@
      */
     function showError(message) {
         if (elements.notesList) {
-            elements.notesList.innerHTML = `<div class="error">${escapeHtml(message)}</div>`;
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            elements.notesList.innerHTML = '';
+            elements.notesList.appendChild(errorDiv);
         }
     }
     
@@ -484,9 +651,14 @@
      * Show notification
      */
     function showNotification(message, type = 'info') {
+        // Sanitize message
+        const sanitizedMessage = escapeHtml(String(message));
+        
         const notification = document.createElement('div');
         notification.className = `order-notes-notification ${type}`;
-        notification.textContent = message;
+        notification.textContent = sanitizedMessage;
+        notification.setAttribute('role', 'alert');
+        notification.setAttribute('aria-live', 'polite');
         
         document.body.appendChild(notification);
         
@@ -498,7 +670,9 @@
         setTimeout(() => {
             notification.style.opacity = '0';
             setTimeout(() => {
-                notification.remove();
+                if (notification.parentNode) {
+                    notification.remove();
+                }
             }, 300);
         }, 3000);
     }
@@ -507,14 +681,22 @@
      * Escape HTML
      */
     function escapeHtml(text) {
+        if (typeof text !== 'string') {
+            text = String(text);
+        }
+        
         const map = {
             '&': '&amp;',
             '<': '&lt;',
             '>': '&gt;',
             '"': '&quot;',
-            "'": '&#039;'
+            "'": '&#039;',
+            '/': '&#x2F;',
+            '`': '&#x60;',
+            '=': '&#x3D;'
         };
-        return String(text).replace(/[&<>"']/g, m => map[m]);
+        
+        return text.replace(/[&<>"'`=\/]/g, m => map[m]);
     }
     
     /**

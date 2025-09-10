@@ -1,6 +1,6 @@
 /**
  * WC Admin Order Notes - Styles
- * Version: 2.2.0
+ * Version: 2.2.1
  */
 
 /* CSS Variables for easy theming */
@@ -16,6 +16,7 @@
     --wc-notes-modal-bg: rgba(0, 0, 0, 0.5);
     --wc-notes-animation-duration: 0.3s;
     --wc-notes-border-radius: 4px;
+    --wc-notes-max-note-length: 1000;
 }
 
 
@@ -78,6 +79,7 @@
 /* Override WooCommerce table row link styles for our column */
 .wp-list-table .order-notes-cell {
     position: relative;
+    cursor: pointer;
 }
 
 .wp-list-table tbody tr:hover .order-notes-cell .note-preview {
@@ -90,6 +92,13 @@
 .wp-list-table tbody tr .order-notes-cell * {
     position: relative;
     z-index: 10;
+}
+
+/* Ensure clickable area covers the entire cell */
+.wp-list-table .order-notes-cell .note-preview {
+    display: block;
+    width: 100%;
+    min-height: 20px;
 }
 
 /* Modal Styles */
@@ -326,6 +335,23 @@
     outline: none;
     border-color: var(--wc-notes-primary-color);
     box-shadow: 0 0 0 1px var(--wc-notes-primary-color);
+}
+
+/* Character count indicator */
+.character-count {
+    font-size: 12px;
+    color: var(--wc-notes-text-muted);
+    text-align: right;
+    margin-top: 5px;
+}
+
+.character-count.warning {
+    color: #f56c6c;
+}
+
+.character-count.error {
+    color: var(--wc-notes-error-color);
+    font-weight: bold;
 }
 
 #add-note-btn {
